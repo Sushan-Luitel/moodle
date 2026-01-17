@@ -90,10 +90,10 @@ foreach ($logs as $log) {
 
     for ($i = $startIndex; $i <= $endIndex; $i++) {
         if ($log->notes === 'opened' && !empty($log->notes_time)) {
-            $notesSeries[$i] = round($log->notes_time / 60, 2); // convert to minutes
+            $notesSeries[$i] = round($log->notes_time / 60, 2);
         }
         if ($log->videos === 'opened' && !empty($log->video_time)) {
-            $videoSeries[$i] = round($log->video_time / 60, 2); // convert to minutes
+            $videoSeries[$i] = round($log->video_time / 60, 2);
         }
         if ($log->assignment === 'submitted') {
             $assignmentSeries[$i] = 1;
@@ -117,32 +117,23 @@ $chart->add_series(new chart_series('Assignment Submitted', $assignmentSeries));
 $chart->add_series(new chart_series('Quiz Submitted', $quizSeries));
 
 // -------------------------
-// Prepare row colors (active = alternating green, inactive = red)
+// Aggregate day-wise for active/inactive
 // -------------------------
-$activedayshade = [];
-$shadeindex = 0;
-$greenshades = ['#e6ffe6', '#ccffcc']; // alternating shades
-$rowshades = [];
+$daydata = [
+    'notes_sum' => 0,
+    'video_sum' => 0,
+    'assignment' => false,
+    'quiz' => false
+];
 
 foreach ($logs as $log) {
-    $isactive =
-        ($log->notes === 'opened' && $log->notes_time > 120) || // >2 min in seconds
-        ($log->videos === 'opened' && $log->video_time > 120) ||
-        $log->assignment === 'submitted' ||
-        $log->quiz === 'submitted';
-
-    $day = date('Y-m-d', $log->logintime);
-
-    if ($isactive) {
-        if (!isset($activedayshade[$day])) {
-            $activedayshade[$day] = $greenshades[$shadeindex % count($greenshades)];
-            $shadeindex++;
-        }
-        $rowshades[] = $activedayshade[$day];
-    } else {
-        $rowshades[] = '#ffe6e6'; // red for inactive
-    }
+    $daydata['notes_sum'] += (int)$log->notes_time;
+    $daydata['video_sum'] += (int)$log->video_time;
+    if ($log->assignment === 'submitted') $daydata['assignment'] = true;
+    if ($log->quiz === 'submitted') $daydata['quiz'] = true;
 }
+
+$isActiveDay = $daydata['notes_sum'] > 120 || $daydata['video_sum'] > 120 || $daydata['assignment'] || $daydata['quiz'];
 
 // -------------------------
 // Render
@@ -157,7 +148,6 @@ echo $OUTPUT->render($chart);
 echo html_writer::tag('h4', 'Detailed Activity Log');
 
 echo html_writer::start_tag('table', ['class' => 'generaltable']);
-
 echo html_writer::start_tag('thead');
 echo html_writer::start_tag('tr');
 $columns = ['Login Time', 'Logout Time', 'Notes Time (min)', 'Video Time (min)', 'Assignment', 'Quiz'];
@@ -169,16 +159,13 @@ echo html_writer::end_tag('thead');
 
 echo html_writer::start_tag('tbody');
 
-$idx = 0;
+$rowcolor = $isActiveDay ? '#e6ffe6' : '#ffe6e6'; // light green if active, red if inactive
 foreach ($logs as $log) {
-    $rowcolor = $rowshades[$idx];
-
     echo html_writer::start_tag('tr', ['style'=>"background-color:$rowcolor;"]);
 
     echo html_writer::tag('td', date('H:i:s', $log->logintime));
     echo html_writer::tag('td', $log->logouttime ? date('H:i:s', $log->logouttime) : '-');
 
-    // Convert seconds to minutes for table
     $notesMinutes = !empty($log->notes_time) ? round($log->notes_time / 60, 2) : '-';
     $videoMinutes = !empty($log->video_time) ? round($log->video_time / 60, 2) : '-';
 
@@ -188,7 +175,6 @@ foreach ($logs as $log) {
     echo html_writer::tag('td', $log->quiz ?? '-');
 
     echo html_writer::end_tag('tr');
-    $idx++;
 }
 
 echo html_writer::end_tag('tbody');

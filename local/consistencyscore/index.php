@@ -4,8 +4,7 @@ require_login();
 
 global $DB, $USER, $OUTPUT;
 
-/** @var \context $context */
-$context = \core\context\system::instance();
+$context = context_system::instance();
 $PAGE->set_context($context);
 $PAGE->set_url(new moodle_url('/local/consistencyscore/index.php'));
 $PAGE->set_title('Consistency Score');
@@ -31,38 +30,63 @@ $data = [];
 
 foreach ($users as $user) {
 
-    $logs = $DB->get_records('local_consistency_log', ['userid' => $user->id], 'logintime ASC');
+    $logs = $DB->get_records(
+        'local_consistency_log',
+        ['userid' => $user->id],
+        'logintime ASC'
+    );
 
-    $activeDays = [];
+    $daydata = [];
     $firstloginday = null;
 
     foreach ($logs as $log) {
 
-        // ✅ ACTIVE DAY RULE (unchanged)
-        $hasactivity =
-            (
-                $log->notes === 'opened' &&
-                $log->notes_time > 120
-            ) ||
-            (
-                $log->videos === 'opened' &&
-                $log->video_time > 120
-            ) ||
-            $log->assignment === 'submitted' ||
-            $log->quiz === 'submitted';
+        if (empty($log->logintime)) {
+            continue;
+        }
 
-        if (!empty($log->logintime)) {
+        $day = gmdate('Y-m-d', $log->logintime);
 
-            // Track FIRST LOGIN DAY
-            if ($firstloginday === null || $log->logintime < $firstloginday) {
-                $firstloginday = $log->logintime;
-            }
+        // Track first login day
+        if ($firstloginday === null || $log->logintime < $firstloginday) {
+            $firstloginday = $log->logintime;
+        }
 
-            // Track ACTIVE DAYS
-            if ($hasactivity) {
-                $day = gmdate('Y-m-d', $log->logintime);
-                $activeDays[$day] = true;
-            }
+        // Init day bucket
+        if (!isset($daydata[$day])) {
+            $daydata[$day] = [
+                'notes_time' => 0,
+                'video_time' => 0,
+                'assignment' => false,
+                'quiz' => false
+            ];
+        }
+
+        // Sum separately
+        $daydata[$day]['notes_time'] += (int)$log->notes_time;
+        $daydata[$day]['video_time'] += (int)$log->video_time;
+
+        if ($log->assignment === 'submitted') {
+            $daydata[$day]['assignment'] = true;
+        }
+
+        if ($log->quiz === 'submitted') {
+            $daydata[$day]['quiz'] = true;
+        }
+    }
+
+    // Determine active days
+    $activeDays = [];
+
+    foreach ($daydata as $date => $info) {
+
+        if (
+            $info['notes_time'] > 120 ||
+            $info['video_time'] > 120 ||
+            $info['assignment'] ||
+            $info['quiz']
+        ) {
+            $activeDays[$date] = true;
         }
     }
 
@@ -76,7 +100,6 @@ foreach ($users as $user) {
         $totaldays = (($today_midnight - $firstday_midnight) / 86400) + 1;
         $totaldays = max(1, (int)$totaldays);
 
-        // ✅ CORRECT CONSISTENCY FORMULA
         $consistencyscore = round(($activecount / $totaldays) * 100);
 
     } else {
@@ -84,11 +107,11 @@ foreach ($users as $user) {
     }
 
     $data[] = (object)[
-        'userid' => $user->id,
-        'photo' => $OUTPUT->user_picture($user, ['size'=>50]),
-        'name' => fullname($user),
+        'userid'      => $user->id,
+        'photo'       => $OUTPUT->user_picture($user, ['size'=>50]),
+        'name'        => fullname($user),
         'active_days' => $activecount,
-        'score' => $consistencyscore
+        'score'       => $consistencyscore
     ];
 }
 
@@ -108,6 +131,7 @@ echo html_writer::end_tag('thead');
 echo html_writer::start_tag('tbody');
 
 foreach ($data as $row) {
+
     echo html_writer::start_tag('tr');
 
     echo html_writer::tag('td', $row->photo);
@@ -118,18 +142,11 @@ foreach ($data as $row) {
     $logsurl = new moodle_url('/local/consistencyscore/student_logs.php', ['userid' => $row->userid]);
     echo html_writer::tag('td', html_writer::link($logsurl, 'View Logs'));
 
-    $daysurl = new moodle_url('/local/consistencyscore/active_days.php', [
-        'userid' => $row->userid
-    ]);
-
-    echo html_writer::tag(
-        'td',
-        html_writer::link($daysurl, $row->active_days, ['style' => 'font-weight:bold;'])
-    );
+    $daysurl = new moodle_url('/local/consistencyscore/active_days.php', ['userid' => $row->userid]);
+    echo html_writer::tag('td', html_writer::link($daysurl, $row->active_days, ['style'=>'font-weight:bold;']));
 
     $scoreurl = new moodle_url('/local/consistencyscore/consistency_pie.php', ['userid' => $row->userid]);
-echo html_writer::tag('td', html_writer::link($scoreurl, $row->score . '%', ['style' => 'font-weight:bold;']));
-
+    echo html_writer::tag('td', html_writer::link($scoreurl, $row->score.'%', ['style'=>'font-weight:bold;']));
 
     echo html_writer::end_tag('tr');
 }

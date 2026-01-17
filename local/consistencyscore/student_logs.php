@@ -4,7 +4,6 @@ require_login();
 
 global $DB, $USER, $OUTPUT, $PAGE;
 
-// Get userid from URL
 $userid = required_param('userid', PARAM_INT);
 
 // Access control
@@ -12,7 +11,7 @@ if (!is_siteadmin() && $USER->id != $userid) {
     throw new moodle_exception('erroraccessdenied', 'local_consistencyscore');
 }
 
-// Get student record
+// User
 $user = $DB->get_record('user', ['id' => $userid, 'deleted' => 0], '*', MUST_EXIST);
 
 // Page setup
@@ -29,45 +28,74 @@ $logs = $DB->get_records(
     'logintime ASC'
 );
 
-$activedayshade = [];
-$shadeindex = 0;
-
-$greenshades = [
-    '#e6ffe6', // light green
-    '#ccffcc'  // slightly darker green
-];
+// ------------------------------------
+// 1️⃣ BUILD DAY-LEVEL DATA
+// ------------------------------------
+$daydata = [];
 
 foreach ($logs as $log) {
 
-    $isactiverow =
-        (
-            $log->notes === 'opened' &&
-            $log->notes_time > 120
-        ) ||
-        (
-            $log->videos === 'opened' &&
-            $log->video_time > 120
-        ) ||
-        $log->quiz === 'submitted' ||
-        $log->assignment === 'submitted';
+    if (empty($log->logintime)) {
+        continue;
+    }
 
-    if ($isactiverow && !empty($log->logintime)) {
+    $day = date('Y-m-d', $log->logintime);
 
-        $day = date('Y-m-d', $log->logintime);
+    if (!isset($daydata[$day])) {
+        $daydata[$day] = [
+            'notes_time' => 0,
+            'video_time' => 0,
+            'assignment' => false,
+            'quiz' => false
+        ];
+    }
 
-        if (!isset($activedayshade[$day])) {
-            $activedayshade[$day] = $greenshades[$shadeindex % count($greenshades)];
-            $shadeindex++;
-        }
+    $daydata[$day]['notes_time'] += (int)$log->notes_time;
+    $daydata[$day]['video_time'] += (int)$log->video_time;
+
+    if ($log->assignment === 'submitted') {
+        $daydata[$day]['assignment'] = true;
+    }
+
+    if ($log->quiz === 'submitted') {
+        $daydata[$day]['quiz'] = true;
     }
 }
 
-// Render
+// ------------------------------------
+// 2️⃣ DETERMINE ACTIVE DAYS + BASE SHADES
+// ------------------------------------
+$greenshades = ['#e6ffe6', '#ccffcc'];   // alternating day shades
+$submissiongreen = '#99e699';            // submission row shade
+$inactivecolor = '#ffe6e6';
+
+$shadeindex = 0;
+$daycolor = [];
+
+foreach ($daydata as $day => $info) {
+
+    $isactiveday =
+        $info['notes_time'] > 120 ||
+        $info['video_time'] > 120 ||
+        $info['assignment'] ||
+        $info['quiz'];
+
+    if ($isactiveday) {
+        $daycolor[$day] = $greenshades[$shadeindex % count($greenshades)];
+        $shadeindex++;
+    } else {
+        $daycolor[$day] = $inactivecolor;
+    }
+}
+
+// ------------------------------------
+// RENDER
+// ------------------------------------
 echo $OUTPUT->header();
 
 echo html_writer::start_tag('table', ['class' => 'generaltable']);
 
-// ---------- TABLE HEADER ----------
+// Header
 echo html_writer::start_tag('thead');
 echo html_writer::start_tag('tr');
 
@@ -83,29 +111,30 @@ echo html_writer::tag('th', 'Logout Time');
 echo html_writer::end_tag('tr');
 echo html_writer::end_tag('thead');
 
-// ---------- TABLE BODY ----------
+// Body
 echo html_writer::start_tag('tbody');
 
 foreach ($logs as $log) {
 
-    $isactiverow =
-        (
-            $log->notes === 'opened' &&
-            $log->notes_time > 120
-        ) ||
-        (
-            $log->videos === 'opened' &&
-            $log->video_time > 120
-        ) ||
-        $log->quiz === 'submitted' ||
-        $log->assignment === 'submitted';
+    $day = !empty($log->logintime)
+        ? date('Y-m-d', $log->logintime)
+        : null;
 
-    if ($isactiverow && !empty($log->logintime)) {
-        $day = date('Y-m-d', $log->logintime);
-        $rowstyle = 'background-color:' . $activedayshade[$day] . ';';
-    } else {
-        $rowstyle = 'background-color:#ffe6e6;'; // red for inactive rows
+    // Default row color = day color
+    $rowcolor = ($day && isset($daycolor[$day]))
+        ? $daycolor[$day]
+        : '';
+
+    // 🔥 OVERRIDE: submission row gets its own green
+    if (
+        ($log->assignment === 'submitted' || $log->quiz === 'submitted') &&
+        $day && isset($daycolor[$day]) &&
+        $daycolor[$day] !== $inactivecolor
+    ) {
+        $rowcolor = $submissiongreen;
     }
+
+    $rowstyle = $rowcolor ? 'background-color:' . $rowcolor . ';' : '';
 
     echo html_writer::start_tag('tr', ['style' => $rowstyle]);
 

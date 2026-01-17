@@ -50,7 +50,7 @@ $today      = strtotime(date('Y-m-d'));
 $totaldays = (int)((($today - $startday) / 86400) + 1);
 
 // --------------------------------------------------
-// Group logs by day
+// Group logs by day and aggregate
 // --------------------------------------------------
 $days = [];
 
@@ -59,21 +59,20 @@ foreach ($logs as $log) {
 
     if (!isset($days[$day])) {
         $days[$day] = [
-            'loggedin' => false,
-            'active'   => false
+            'notes_sum' => 0,
+            'video_sum' => 0,
+            'assignment' => false,
+            'quiz' => false
         ];
     }
 
-    $days[$day]['loggedin'] = true;
-
-    $isactive =
-        ($log->notes === 'opened' && $log->notes_time > 120) ||
-        ($log->videos === 'opened' && $log->video_time > 120) ||
-        $log->assignment === 'submitted' ||
-        $log->quiz === 'submitted';
-
-    if ($isactive) {
-        $days[$day]['active'] = true;
+    $days[$day]['notes_sum'] += (int)$log->notes_time;
+    $days[$day]['video_sum'] += (int)$log->video_time;
+    if ($log->assignment === 'submitted') {
+        $days[$day]['assignment'] = true;
+    }
+    if ($log->quiz === 'submitted') {
+        $days[$day]['quiz'] = true;
     }
 }
 
@@ -89,10 +88,14 @@ for ($i = 0; $i < $totaldays; $i++) {
 
     if (!isset($days[$date])) {
         $nologinDates[] = $date;
-    } elseif ($days[$date]['active']) {
-        $activeDates[] = $date;
     } else {
-        $inactiveDates[] = $date;
+        $info = $days[$date];
+        $isActive = $info['notes_sum'] > 120 || $info['video_sum'] > 120 || $info['assignment'] || $info['quiz'];
+        if ($isActive) {
+            $activeDates[] = $date;
+        } else {
+            $inactiveDates[] = $date;
+        }
     }
 }
 
@@ -101,7 +104,7 @@ $inactivecount = count($inactiveDates);
 $nologincount  = count($nologinDates);
 
 // --------------------------------------------------
-// Pie Chart (no color forcing)
+// Pie Chart
 // --------------------------------------------------
 $pie = new chart_pie();
 $pie->set_title('Consistency Distribution');
@@ -131,7 +134,6 @@ echo html_writer::tag(
     'Total days : <strong>' . $totaldays . '</strong>',
     ['style' => 'margin-bottom:10px;']
 );
-
 
 // Chart
 echo $OUTPUT->render($pie);
