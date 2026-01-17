@@ -62,10 +62,12 @@ class observer {
     public static function module_viewed(\core\event\course_module_viewed $event) {
     global $DB;
 
+    // Get latest open session
     if (!$rec = self::get_latest_record($event->userid)) {
         return;
     }
 
+    // Get course module
     $cm = get_coursemodule_from_id(
         null,
         $event->contextinstanceid,
@@ -74,31 +76,24 @@ class observer {
         MUST_EXIST
     );
 
-    // NOTES: page & book
-    if ($cm->modname === 'page' || $cm->modname === 'book') {
+    /**
+     * NOTES
+     * → Only BOOK
+     * (matches notestimer.js loading)
+     */
+    if ($cm->modname === 'book') {
         $rec->notes = 'opened';
     }
 
-    // VIDEOS: resource with MP4
-    if ($cm->modname === 'resource') {
-
-        $fs = get_file_storage();
-        $files = $fs->get_area_files(
-            $event->contextid,   // ✅ THIS IS THE FIX
-            'mod_resource',
-            'content',
-            0,
-            '',
-            false
-        );
-
-        foreach ($files as $file) {
-            if (strpos($file->get_mimetype(), 'video/') === 0) {
-                $rec->videos = 'opened';
-                break;
-            }
-        }
+    /**
+     * VIDEOS
+     * → Only PAGE
+     * (matches videotimer.js loading on mod-page-view)
+     */
+    if ($cm->modname === 'page') {
+        $rec->videos = 'opened';
     }
+
 
     // URL & H5P → video
     if ($cm->modname === 'url' || $cm->modname === 'h5pactivity') {
