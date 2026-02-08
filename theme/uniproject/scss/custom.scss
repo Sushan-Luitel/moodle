@@ -1,0 +1,52 @@
+/* Background visible behind content only */
+html, body {
+  background: #e65100;
+  min-height: 100%;
+}
+
+/* Keep all cards white so content is readable */
+.card, .card-body, .region-main, .container {
+  background: #ffffff; /* keep white */
+  color: #000000;      /* readable text inside cards */
+  border-radius: 20px;
+}
+
+/* All sidebar blocks get rounded corners */
+aside .block .card,
+.region-side-pre .block .card,
+.region-side-post .block .card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 15px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Specifically highlight administration block */
+.block_administration .card {
+  border: 2px solid #007bff; /* Optional: blue border for admin */
+  border-radius: 20px;
+}
+
+/* Buttons still styled globally */
+.btn,
+button,
+input[type="submit"],
+input[type="button"] {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(to right, #1a237e, #283593);
+  border: none;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn:hover,
+button:hover,
+input[type="submit"]:hover,
+input[type="button"]:hover {
+  background: linear-gradient(to right, #283593, #1a237e);
+  transform: scale(0.95);
+}
+
