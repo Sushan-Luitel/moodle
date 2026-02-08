@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/consistencyscore/db" VERSION="2026010100" COMMENT="Student activity logs">
+  <TABLES>
+    <TABLE NAME="local_consistency_log" COMMENT="Stores student activity logs">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+
+        <FIELD NAME="notes" TYPE="char" LENGTH="20" NOTNULL="false"/>
+        <FIELD NAME="quiz" TYPE="char" LENGTH="20" NOTNULL="false"/>
+        <FIELD NAME="assignment" TYPE="char" LENGTH="20" NOTNULL="false"/>
+        <FIELD NAME="videos" TYPE="char" LENGTH="20" NOTNULL="false"/>
+
+        <FIELD NAME="logintime" TYPE="int" LENGTH="10" NOTNULL="false"/>
+        <FIELD NAME="logouttime" TYPE="int" LENGTH="10" NOTNULL="false"/>
+
+        <FIELD NAME="notes_time" TYPE="int" LENGTH="11" NOTNULL="false" DEFAULT="0"/>
+        <FIELD NAME="video_time" TYPE="int" LENGTH="11" NOTNULL="false" DEFAULT="0"/>
+
+        <FIELD NAME="face_detection_warning" TYPE="int" LENGTH="11" NOTNULL="false" DEFAULT="0"/>
+        <FIELD NAME="tab_switch_warning" TYPE="int" LENGTH="11" NOTNULL="false" DEFAULT="0"/>
+
+        <FIELD NAME="auto_submitted" TYPE="int" LENGTH="1" NOTNULL="false" DEFAULT="0"/>
+
+        <FIELD NAME="attemptid" TYPE="int" LENGTH="10" NOTNULL="false"/>
+        <FIELD NAME="last_warning_time" TYPE="int" LENGTH="10" NOTNULL="false"/>
+      </FIELDS>
+
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+    </TABLE>
+  </TABLES>
+</XMLDB>
