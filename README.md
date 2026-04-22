@@ -77,7 +77,7 @@ This project is a custom Moodle plugin designed to track and analyze student eng
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/moodle-consistency-plugin.git
+   git clone https://github.com/Sushan-Luitel/moodle-consistency-plugin.git
    ```
 2. Place the plugin in:
 
